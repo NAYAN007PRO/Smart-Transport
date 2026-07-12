@@ -1,0 +1,139 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         String        @default("DISPATCHER") // ADMIN, DISPATCHER, MANAGER, DRIVER
+  status       String        @default("ACTIVE")    // ACTIVE, INACTIVE, SUSPENDED
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  activities   ActivityLog[]
+}
+
+model Vehicle {
+  id              String             @id @default(uuid())
+  regNumber       String             @unique
+  name            String
+  model           String
+  type            String             // TRUCK, VAN, CAR, etc.
+  loadCapacity    Float              // in kg
+  odometer        Float              // in km
+  acquisitionCost Float
+  status          String             @default("AVAILABLE") // AVAILABLE, ON_TRIP, IN_SHOP, RETIRED
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  trips           Trip[]
+  maintenance     MaintenanceLog[]
+  fuelLogs        FuelLog[]
+  expenses        Expense[]
+  documents       VehicleDocument[]
+}
+
+model Driver {
+  id              String    @id @default(uuid())
+  name            String
+  licenseNumber   String    @unique
+  licenseCategory String    // Class A, Class B, Class C, etc.
+  licenseExpiry   DateTime
+  phone           String
+  safetyScore     Float     @default(100.0) // 0 to 100
+  status          String    @default("AVAILABLE") // AVAILABLE, ON_TRIP, OFF_DUTY, SUSPENDED
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  trips           Trip[]
+}
+
+model Trip {
+  id          String    @id @default(uuid())
+  source      String
+  destination String
+  cargoWeight Float
+  distance    Float     // in km
+  status      String    @default("DRAFT") // DRAFT, DISPATCHED, COMPLETED, CANCELLED
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
+  driverId    String
+  driver      Driver    @relation(fields: [driverId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  expenses    Expense[]
+  fuelLogs    FuelLog[]
+}
+
+model MaintenanceLog {
+  id          String    @id @default(uuid())
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  description String
+  cost        Float
+  openedAt    DateTime  @default(now())
+  closedAt    DateTime?
+  status      String    @default("OPEN") // OPEN, CLOSED
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model FuelLog {
+  id              String   @id @default(uuid())
+  vehicleId       String
+  vehicle         Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  tripId          String?
+  trip            Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  fuelQuantity    Float    // in liters
+  fuelCost        Float    // cost in USD/local currency
+  odometerReading Float    // odometer at refuel
+  date            DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  vehicleId   String
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  tripId      String?
+  trip        Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  amount      Float
+  category    String   // FUEL, MAINTENANCE, TOLL, INSURANCE, OTHERS
+  description String
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model VehicleDocument {
+  id           String   @id @default(uuid())
+  vehicleId    String
+  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  name         String
+  documentType String   // REGISTRATION, INSURANCE, PERMIT, OTHERS
+  filePath     String
+  expiryDate   DateTime
+  uploadedAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  type      String   @default("INFO") // INFO, SUCCESS, WARNING, DANGER
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+}
